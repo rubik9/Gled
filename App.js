@@ -168,7 +168,7 @@ export default function App() {
       ) : !allowed ? (
         <Paywall user={user} onLogout={doLogout} />
       ) : (
-        <PadScreen onLogout={doLogout} />
+        <PadScreen user={user} onLogout={doLogout} />
       )}
     </SafeAreaProvider>
   );
