@@ -8,10 +8,11 @@ import {
   TextInput,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-
+import AppSplash from "./src/screens/AppSplash.jsx";
 import PadScreen from "./src/screens/PadScreen";
 import Paywall from "./src/screens/Paywall";
 import { auth, db } from "./src/firebase";
+import { AppState } from "react-native";
 
 import {
   onAuthStateChanged,
@@ -31,6 +32,9 @@ function toMsFromFirestoreTimestamp(ts) {
 }
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  const appStateRef = useRef(AppState.currentState);
+
   const [user, setUser] = useState(null);
   const [allowed, setAllowed] = useState(false); // active && notExpired
   const [loading, setLoading] = useState(true);
@@ -38,7 +42,30 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  useEffect(() => {
+    const t = setTimeout(() => setShowSplash(false), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (nextState) => {
+      const prev = appStateRef.current;
+      appStateRef.current = nextState;
+
+      // Si venimos de background/inactive -> active, NO mostrar splash
+      if (
+        (prev === "background" || prev === "inactive") &&
+        nextState === "active"
+      ) {
+        setShowSplash(false);
+      }
+    });
+
+    return () => sub.remove();
+  }, []);
+
   const stopUserSnapRef = useRef(null);
+
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
@@ -68,7 +95,7 @@ export default function App() {
             createdAt: serverTimestamp(),
             lastSeen: serverTimestamp(),
           },
-          { merge: true }
+          { merge: true },
         );
       } catch (e) {
         console.log("setDoc users error:", e?.code, e?.message);
@@ -83,7 +110,8 @@ export default function App() {
           const isActive = d.active === true;
 
           const expiresMs = toMsFromFirestoreTimestamp(d.expiresAt);
-          const isExpired = typeof expiresMs === "number" && expiresMs <= Date.now();
+          const isExpired =
+            typeof expiresMs === "number" && expiresMs <= Date.now();
 
           setAllowed(isActive && !isExpired);
           setLoading(false);
@@ -92,7 +120,7 @@ export default function App() {
           console.log("user snapshot error:", err?.code, err?.message);
           setAllowed(false);
           setLoading(false);
-        }
+        },
       );
     });
 
@@ -126,7 +154,9 @@ export default function App() {
       Alert.alert("Logout", String(e?.message || e));
     }
   }
-
+  if (showSplash) {
+    return <AppSplash />;
+  }
   return (
     <SafeAreaProvider>
       {loading ? (
@@ -162,7 +192,8 @@ export default function App() {
           </Pressable>
 
           <Text style={S.hint}>
-            Si tu acceso está inactivo o vencido, verás la pantalla de solicitud.
+            Si tu acceso está inactivo o vencido, verás la pantalla de
+            solicitud.
           </Text>
         </SafeAreaView>
       ) : !allowed ? (
